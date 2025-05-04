@@ -22,17 +22,24 @@ jobs:
           node-version: 20
           cache: 'pnpm'
 
-      # 关键修正：使用 Corepack 安装 pnpm
-      - name: Enable Corepack
+      # 关键修正：在每个矩阵任务中显式设置 pnpm
+      - name: Install pnpm
         run: |
           corepack enable
           corepack prepare pnpm@8.15.4 --activate
+          echo "$HOME/.local/share/pnpm" >> $GITHUB_PATH
 
-      # 安装依赖
+      # 验证环境
+      - name: Verify Environment
+        run: |
+          echo "PATH: $PATH"
+          which pnpm
+          pnpm -v
+
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm install --frozen-lockfile
 
-      # 构建步骤
       - name: Build ${{ matrix.project }}
         working-directory: ${{ matrix.project }}
         run: |
@@ -40,7 +47,6 @@ jobs:
           mkdir -p ../dist/${{ matrix.project }}
           cp -R .vitepress/dist/* ../dist/${{ matrix.project }}/
 
-      # 部署步骤
       - name: Deploy to GH Pages
         if: matrix.project == 'docs'
         uses: peaceiris/actions-gh-pages@v3
