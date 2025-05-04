@@ -13,30 +13,44 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Checkout
+      # 步骤 1: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node
+      # 步骤 2: 设置 Node.js 环境
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
           cache: 'pnpm'
 
-      # 关键修正：在每个矩阵任务中显式设置 pnpm
+      # 步骤 3: 安装并配置 pnpm (关键修正)
       - name: Install pnpm
-        run: npm i -g pnpm
-
-      # 验证环境
-      - name: Verify Environment
         run: |
-          echo "PATH: $PATH"
-          which pnpm
+          # 使用官方安装脚本
+          curl -fsSL https://get.pnpm.io/install.sh | sh -
+          
+          # 显式设置 PATH (两种方式)
+          echo "export PATH=$HOME/.local/share/pnpm:$PATH" >> $GITHUB_ENV
+          echo "$HOME/.local/share/pnpm" >> $GITHUB_PATH
+          
+          # 验证安装
+          chmod +x $HOME/.local/share/pnpm/pnpm
           pnpm -v
 
-      - name: Install dependencies
+      # 步骤 4: 验证环境
+      - name: Verify Environment
         run: |
-          pnpm install --frozen-lockfile
+          echo "Current PATH: $PATH"
+          which pnpm
+          ls -l $(which pnpm)
+          pnpm -v
 
+      # 步骤 5: 安装依赖
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 步骤 6: 构建项目
       - name: Build ${{ matrix.project }}
         working-directory: ${{ matrix.project }}
         run: |
@@ -44,8 +58,9 @@ jobs:
           mkdir -p ../dist/${{ matrix.project }}
           cp -R .vitepress/dist/* ../dist/${{ matrix.project }}/
 
+      # 步骤 7: 部署到 GitHub Pages
       - name: Deploy to GH Pages
-        if: matrix.project == 'docs'
+        if: matrix.project == 'docs'  # 只需要部署一次
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
