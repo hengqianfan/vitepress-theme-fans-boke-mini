@@ -7,6 +7,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [docs, demo]
+      fail-fast: false
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -20,15 +25,8 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm@8
 
-      # 安装根目录依赖（共享依赖可提升至此）
       - name: Install root dependencies
-        run: pnpm install
-
-      # 并行构建阶段
-      strategy:
-        matrix:
-          project: [docs, demo]
-        fail-fast: false
+        run: pnpm install --frozen-lockfile
 
       - name: Build ${{ matrix.project }}
         working-directory: ${{ matrix.project }}
@@ -37,7 +35,6 @@ jobs:
           mkdir -p ../dist/${{ matrix.project }}
           cp -R .vitepress/dist/* ../dist/${{ matrix.project }}/
 
-      # 部署阶段
       - name: Deploy to GH Pages
         if: matrix.project == 'docs'  # 只需执行一次
         uses: peaceiris/actions-gh-pages@v3
