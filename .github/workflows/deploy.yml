@@ -1,0 +1,44 @@
+name: Deploy VitePress Sites
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # 并行构建两个项目
+      strategy:
+        matrix:
+          project: [docs, demo]
+        fail-fast: false
+
+      - name: Build ${{ matrix.project }}
+        working-directory: ${{ matrix.project }}
+        run: |
+          npm install
+          npm run build
+
+      # 合并构建产物
+      - name: Prepare Deployment
+        if: matrix.project == 'docs'  # 只需执行一次
+        run: |
+          mkdir -p public
+          cp -r docs/dist-docs public/docs
+          cp -r demo/dist-demo public/demo
+
+      - name: Deploy to GH Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: false
