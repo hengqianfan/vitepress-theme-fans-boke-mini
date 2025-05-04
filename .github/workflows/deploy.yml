@@ -1,68 +1,66 @@
-name: Deploy VitePress Sites with pnpm
+name: Deploy VitePress Monorepo with npm
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: [docs, demo]
-      fail-fast: false
-
+        project: [docs, demo]  # 并行处理两个项目
     steps:
-      # 步骤 1: 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 步骤 2: 设置 Node.js 环境
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: npm
 
-      # 步骤 3: 安装并配置 pnpm (关键修正)
-      - name: Install pnpm
-        run: |
-          # 使用官方安装脚本
-          curl -fsSL https://get.pnpm.io/install.sh | sh -
-          
-          # 显式设置 PATH (两种方式)
-          echo "export PATH=$HOME/.local/share/pnpm:$PATH" >> $GITHUB_ENV
-          echo "$HOME/.local/share/pnpm" >> $GITHUB_PATH
-          
-          # 验证安装
-          chmod +x $HOME/.local/share/pnpm/pnpm
-          pnpm -v
-
-      # 步骤 4: 验证环境
-      - name: Verify Environment
-        run: |
-          echo "Current PATH: $PATH"
-          which pnpm
-          ls -l $(which pnpm)
-          pnpm -v
-
-      # 步骤 5: 安装依赖
+      # 安装依赖 (Monorepo 模式)
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: ${{ matrix.project }}
+        run: npm install
 
-      # 步骤 6: 构建项目
+      # 构建项目
       - name: Build ${{ matrix.project }}
         working-directory: ${{ matrix.project }}
         run: |
-          pnpm build
+          npm run build
           mkdir -p ../dist/${{ matrix.project }}
           cp -R .vitepress/dist/* ../dist/${{ matrix.project }}/
 
-      # 步骤 7: 部署到 GitHub Pages
-      - name: Deploy to GH Pages
-        if: matrix.project == 'docs'  # 只需要部署一次
-        uses: peaceiris/actions-gh-pages@v3
+      # 合并构建产物
+      - name: Prepare deployment
+        if: matrix.project == 'docs'  # 只需执行一次
+        run: mkdir -p total_dist && cp -r dist/* total_dist/
+
+      - name: Upload artifact
+        if: matrix.project == 'docs'
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          keep_files: true
+          path: total_dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
