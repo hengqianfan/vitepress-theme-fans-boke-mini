@@ -5,7 +5,12 @@ export default defineConfig({
   title: "wo shi demo",
   description: "A VitePress Site",
   base: '/vitepress-theme-fans-boke-mini/demo/', // 必须与仓库路径匹配
-  outDir: '../dist-demo',
+  outDir: '../dist/demo',  // 统一输出到根目录的 dist 文件夹
+  vite: {
+    build: {
+      emptyOutDir: true    // 避免构建冲突
+    }
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
